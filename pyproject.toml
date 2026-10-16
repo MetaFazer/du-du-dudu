@@ -1,0 +1,33 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-v --tb=short"
+
+[tool.ruff]
+target-version = "py311"
+line-length     = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "BLE", # flake8-blind-except
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # line length handled by formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*"      = ["S101"]          # assert is fine in tests
+# Broad Exception catches are intentional in ETL (spec §11: "Handle FastF1 failures per
+# session: log, skip, continue. Do not crash the whole run.") and in the Streamlit
+# shell where graceful DB degradation is required.
+"etl/ingest.py"  = ["BLE001"]
+"etl/season.py"  = ["BLE001"]
+"etl/views.py"   = ["BLE001"]
+"app/Home.py"    = ["BLE001"]
