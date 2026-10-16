@@ -143,6 +143,10 @@ def load_full_season(
         for stype in session_types:
             _load_session_safe(season, rnd, stype, engine, run_id, name)
 
+    from etl.views import refresh_views
+    log.info("Refreshing materialized views for season %d …", season)
+    refresh_views(engine)
+
     log.info("=== Season %d load complete (run_id=%s) ===", season, run_id)
 
 
@@ -183,3 +187,9 @@ def _load_session_safe(
         load_weather(season, round_no, session_type, engine, run_id)
     except Exception as exc:  # noqa: BLE001
         log.error("weather load failed for %s: %s", label, exc)
+
+    try:
+        from etl.telemetry import load_telemetry_for_session
+        load_telemetry_for_session(season, round_no, session_type, engine, run_id)
+    except Exception as exc:  # noqa: BLE001
+        log.error("telemetry load failed for %s: %s", label, exc)
