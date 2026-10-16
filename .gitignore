@@ -50,7 +50,12 @@ htmlcov/
 Thumbs.db
 
 # Streamlit
-.streamlit/secrets.toml
+.streamlit/
+
+# Agent, Skills & Scratch
+.agents/
+skills-lock.json
+scratch/
 
 # Jupyter
 .ipynb_checkpoints/
