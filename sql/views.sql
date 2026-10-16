@@ -72,7 +72,7 @@ out_laps AS (
       AND l.lap_time_ms IS NOT NULL
 ),
 stops AS (
-    -- Match each in-lap to the subsequent out-lap (next stint)
+    -- Match each in-lap to the subsequent out-lap (immediately following lap)
     SELECT
         i.session_id,
         i.driver_id,
@@ -85,7 +85,7 @@ stops AS (
     JOIN out_laps o
         ON  o.session_id = i.session_id
         AND o.driver_id  = i.driver_id
-        AND o.stint      = i.stint + 1   -- next stint = immediately after pit
+        AND o.lap_no     = i.lap_no + 1
 )
 SELECT
     s.session_id,
@@ -103,7 +103,11 @@ FROM stops s
 JOIN clean_median cm
     ON  cm.session_id = s.session_id
     AND cm.driver_id  = s.driver_id
-LEFT JOIN pit_stops p
+LEFT JOIN (
+    SELECT session_id, driver_id, lap, MIN(pit_lane_time_ms) AS pit_lane_time_ms
+    FROM pit_stops
+    GROUP BY session_id, driver_id, lap
+) p
     ON  p.session_id = s.session_id
     AND p.driver_id  = s.driver_id
     AND p.lap        = s.in_lap_no;
