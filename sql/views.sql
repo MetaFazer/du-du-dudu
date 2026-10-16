@@ -407,5 +407,6 @@ WHERE NOT EXISTS (
       AND sc.lap BETWEEN cp.first_in_lap AND cp.second_in_lap + 1
 );
 
+DROP INDEX IF EXISTS uidx_mv_undercut;
 CREATE UNIQUE INDEX IF NOT EXISTS uidx_mv_undercut
-    ON mv_undercut (session_id, driver_first, driver_second, first_in_lap);
+    ON mv_undercut (session_id, driver_first, driver_second, first_in_lap, second_in_lap);

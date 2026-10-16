@@ -193,3 +193,15 @@ def _load_session_safe(
         load_telemetry_for_session(season, round_no, session_type, engine, run_id)
     except Exception as exc:  # noqa: BLE001
         log.error("telemetry load failed for %s: %s", label, exc)
+
+
+if __name__ == "__main__":
+    from etl.db import apply_schema, get_engine
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)-8s %(name)s  %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+    eng = get_engine()
+    apply_schema(eng)
+    load_full_season(2025, eng)

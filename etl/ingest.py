@@ -64,7 +64,7 @@ def _configure_ff1_cache() -> None:
 # ---------------------------------------------------------------------------
 
 JOLPICA_BASE = "https://api.jolpi.ca/ergast/f1"
-_JOLPICA_DELAY = 0.25  # seconds between requests
+_JOLPICA_DELAY = 0.1  # seconds between requests
 
 
 def _jolpica_get(path: str, params: dict | None = None) -> dict:
@@ -275,6 +275,48 @@ def _get_driver_id_map(engine: Engine) -> dict[str, int]:
     return {r[0]: r[1] for r in rows}
 
 
+_DRIVER_SLUG_CACHE: dict[str, int] = {}
+
+
+def _get_driver_slug_map(season: int, engine: Engine) -> dict[str, int]:
+    """Return {driver_slug: driver_id} mapping Jolpica driverId (e.g. 'max_verstappen') to DB driver_id."""
+    global _DRIVER_SLUG_CACHE
+    if _DRIVER_SLUG_CACHE:
+        return _DRIVER_SLUG_CACHE
+
+    code_map = _get_driver_id_map(engine)
+    try:
+        data = _jolpica_get(f"{season}/drivers.json", params={"limit": 100})
+        drivers = data.get("MRData", {}).get("DriverTable", {}).get("Drivers", [])
+        for d in drivers:
+            code = d.get("code") or d["driverId"][:3].upper()
+            if code in code_map:
+                _DRIVER_SLUG_CACHE[d["driverId"]] = code_map[code]
+    except Exception as exc:
+        log.warning("Could not fetch Jolpica drivers for slug mapping: %s", exc)
+
+    return _DRIVER_SLUG_CACHE
+
+
+def _parse_time_ms(time_str: str | None) -> int | None:
+    """Parse lap or pit duration string ('1:34.725', '23.724') into milliseconds."""
+    if not time_str or not isinstance(time_str, str):
+        return None
+    time_str = time_str.strip()
+    try:
+        if ":" in time_str:
+            parts = time_str.split(":")
+            if len(parts) == 2:
+                m, s = parts
+                return int((int(m) * 60 + float(s)) * 1000)
+            elif len(parts) == 3:
+                h, m, s = parts
+                return int((int(h) * 3600 + int(m) * 60 + float(s)) * 1000)
+        return int(float(time_str) * 1000)
+    except (ValueError, TypeError):
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Results loader
 # ---------------------------------------------------------------------------
@@ -394,6 +436,155 @@ def _ff1_session_type(session_type: str) -> str:
     }.get(session_type, session_type)
 
 
+def _load_laps_jolpica(
+    season: int,
+    round_no: int,
+    session_type: str,
+    session_id: int,
+    engine: Engine,
+    run_id: str,
+) -> bool:
+    """Fallback loader: upsert laps from Jolpica API when FastF1 timing is unavailable."""
+    slug_map = _get_driver_slug_map(season, engine)
+    code_map = _get_driver_id_map(engine)
+
+    if session_type in ("R", "Sprint"):
+        # 1. Fetch pit stops to identify in-laps and out-laps
+        pit_in_laps: set[tuple[int, int]] = set()
+        pit_out_laps: set[tuple[int, int]] = set()
+        try:
+            ps_data = _jolpica_get(f"{season}/{round_no}/pitstops.json", params={"limit": 100})
+            races = ps_data.get("MRData", {}).get("RaceTable", {}).get("Races", [])
+            if races:
+                for ps in races[0].get("PitStops", []):
+                    did = slug_map.get(ps.get("driverId"))
+                    lap = int(ps.get("lap", 0))
+                    if did and lap > 0:
+                        pit_in_laps.add((did, lap))
+                        pit_out_laps.add((did, lap + 1))
+        except Exception as exc:
+            log.warning("Could not fetch pit stops from Jolpica for %d R%d: %s", season, round_no, exc)
+
+        # 2. Paginate laps
+        offset = 0
+        rows: list[dict] = []
+        while True:
+            try:
+                data = _jolpica_get(f"{season}/{round_no}/laps.json", params={"limit": 100, "offset": offset})
+            except Exception as exc:
+                log.warning("Jolpica laps request failed at offset %d: %s", offset, exc)
+                break
+
+            mr = data.get("MRData", {})
+            races = mr.get("RaceTable", {}).get("Races", [])
+            if not races:
+                break
+            laps = races[0].get("Laps", [])
+            if not laps:
+                break
+            total = int(mr.get("total", 0))
+
+            for lap_obj in laps:
+                lap_no = int(lap_obj["number"])
+                for t in lap_obj.get("Timings", []):
+                    did = slug_map.get(t.get("driverId"))
+                    if not did:
+                        continue
+                    t_ms = _parse_time_ms(t.get("time"))
+                    pos_str = t.get("position", "")
+                    pos = int(pos_str) if pos_str.isdigit() else None
+                    is_in = (did, lap_no) in pit_in_laps
+                    is_out = (did, lap_no) in pit_out_laps
+
+                    rows.append({
+                        "session_id": session_id,
+                        "driver_id": did,
+                        "lap_no": lap_no,
+                        "lap_time_ms": t_ms,
+                        "s1_ms": None,
+                        "s2_ms": None,
+                        "s3_ms": None,
+                        "compound": "UNKNOWN",
+                        "tyre_life": None,
+                        "stint": None,
+                        "pit_in_time": 1 if is_in else None,
+                        "pit_out_time": 1 if is_out else None,
+                        "track_status": "1",
+                        "position": pos,
+                        "is_accurate": True if t_ms else False,
+                        "is_clean": False,
+                    })
+
+            offset += 100
+            if offset >= total:
+                break
+
+        if not rows:
+            log.warning("No Jolpica race laps found for %d R%d %s", season, round_no, session_type)
+            return False
+
+        df = pd.DataFrame(rows)
+        flag_implausible_times(df)
+        apply_clean_flag(df)
+        _upsert_laps(df, session_id, engine)
+        log.info("Upserted %d race laps from Jolpica for %d R%d %s", len(df), season, round_no, session_type)
+        return True
+
+    elif session_type in ("Q", "SQ"):
+        path = f"{season}/{round_no}/qualifying.json" if session_type == "Q" else f"{season}/{round_no}/sprint.json"
+        try:
+            data = _jolpica_get(path)
+            races = data.get("MRData", {}).get("RaceTable", {}).get("Races", [])
+            if not races:
+                return False
+            q_results = races[0].get("QualifyingResults") or races[0].get("SprintQualifyingResults", [])
+        except Exception as exc:
+            log.warning("Jolpica qualifying fetch failed for %d R%d: %s", season, round_no, exc)
+            return False
+
+        rows: list[dict] = []
+        for r in q_results:
+            drv = r.get("Driver", {})
+            did = code_map.get(drv.get("code")) or slug_map.get(drv.get("driverId"))
+            if not did:
+                continue
+            pos_str = r.get("position", "")
+            pos = int(pos_str) if pos_str.isdigit() else 1
+
+            for lap_idx, q_key in enumerate(["Q1", "Q2", "Q3"], start=1):
+                t_str = r.get(q_key)
+                t_ms = _parse_time_ms(t_str)
+                if t_ms:
+                    rows.append({
+                        "session_id": session_id,
+                        "driver_id": did,
+                        "lap_no": lap_idx,
+                        "lap_time_ms": t_ms,
+                        "s1_ms": None,
+                        "s2_ms": None,
+                        "s3_ms": None,
+                        "compound": "SOFT",
+                        "tyre_life": 1,
+                        "stint": lap_idx,
+                        "pit_in_time": None,
+                        "pit_out_time": None,
+                        "track_status": "1",
+                        "position": pos,
+                        "is_accurate": True,
+                        "is_clean": True,
+                    })
+
+        if not rows:
+            return False
+
+        df = pd.DataFrame(rows)
+        _upsert_laps(df, session_id, engine)
+        log.info("Upserted %d qualifying laps from Jolpica for %d R%d %s", len(df), season, round_no, session_type)
+        return True
+
+    return False
+
+
 def load_laps(
     season: int,
     round_no: int,
@@ -402,7 +593,7 @@ def load_laps(
     run_id: str,
 ) -> None:
     """
-    Load lap data for one session via FastF1 and upsert into the laps table.
+    Load lap data for one session via FastF1 (falling back to Jolpica API if unavailable).
 
     Cleaning rules (is_clean) are applied here before writing.
     DQ checks are run and persisted to dq_log.
@@ -412,16 +603,6 @@ def load_laps(
     label = f"{season} R{round_no} {session_type}"
     log.info("Loading laps: %s", label)
 
-    try:
-        ff1_type = _ff1_session_type(session_type)
-        sess = fastf1.get_session(season, round_no, ff1_type)
-        sess.load(laps=True, telemetry=False, weather=True, messages=True)
-    except Exception as exc:
-        dq_rows = check_session_load_failure(run_id, label, str(exc))
-        write_dq_log(dq_rows, engine)
-        log.error("Failed to load FastF1 session %s: %s", label, exc)
-        return
-
     event_id = _get_event_id(season, round_no, engine)
     if event_id is None:
         log.error("Event not in DB for %s – run load_events first", label)
@@ -430,30 +611,55 @@ def load_laps(
     session_id = _get_or_create_session(event_id, session_type, engine)
     driver_map = _get_driver_id_map(engine)
 
-    # ---- Check driver codes against DB ----
-    db_drivers_df = pd.DataFrame(list(driver_map.items()), columns=["code", "driver_id"])
-    dq_rows = check_driver_number_mismatch(sess.laps, db_drivers_df, run_id, label)
-    write_dq_log(dq_rows, engine)
+    sess = None
+    try:
+        ff1_type = _ff1_session_type(session_type)
+        sess = fastf1.get_session(season, round_no, ff1_type)
+        sess.load(laps=True, telemetry=False, weather=True, messages=True)
+    except Exception as exc:
+        dq_rows = check_session_load_failure(run_id, label, str(exc))
+        write_dq_log(dq_rows, engine)
+        log.warning("FastF1 session load failed for %s (%s) – falling back to Jolpica", label, exc)
 
-    # ---- Build laps DataFrame ----
-    laps_df = sess.laps.copy()
-    laps_df = _map_laps_to_schema(laps_df, session_id, driver_map)
+    has_laps = False
+    laps_data = None
+    if sess is not None:
+        try:
+            laps_data = getattr(sess, "_laps", None)
+            if laps_data is None:
+                laps_data = sess.laps
+            if laps_data is not None and not laps_data.empty:
+                has_laps = True
+        except Exception:
+            has_laps = False
 
-    if laps_df.empty:
-        log.warning("No laps to insert for %s", label)
-        return
+    if has_laps and laps_data is not None:
+        # ---- Check driver codes against DB ----
+        db_drivers_df = pd.DataFrame(list(driver_map.items()), columns=["code", "driver_id"])
+        dq_rows = check_driver_number_mismatch(laps_data, db_drivers_df, run_id, label)
+        write_dq_log(dq_rows, engine)
 
-    # Apply cleaning rules
-    flag_implausible_times(laps_df)
-    apply_clean_flag(laps_df)
+        # ---- Build laps DataFrame ----
+        laps_df = laps_data.copy()
+        laps_df = _map_laps_to_schema(laps_df, session_id, driver_map)
 
-    # Run all DQ checks
-    dq_rows = run_all_lap_checks(laps_df, run_id, label)
-    write_dq_log(dq_rows, engine)
+        if not laps_df.empty:
+            # Apply cleaning rules
+            flag_implausible_times(laps_df)
+            apply_clean_flag(laps_df)
 
-    # ---- Upsert laps ----
-    _upsert_laps(laps_df, session_id, engine)
-    log.info("Upserted %d laps for %s", len(laps_df), label)
+            # Run all DQ checks
+            dq_rows = run_all_lap_checks(laps_df, run_id, label)
+            write_dq_log(dq_rows, engine)
+
+            # ---- Upsert laps ----
+            _upsert_laps(laps_df, session_id, engine)
+            log.info("Upserted %d laps for %s via FastF1", len(laps_df), label)
+            return
+
+    # Fallback to Jolpica
+    log.info("Attempting Jolpica fallback for laps: %s", label)
+    _load_laps_jolpica(season, round_no, session_type, session_id, engine, run_id)
 
 
 def _map_laps_to_schema(
@@ -582,80 +788,41 @@ def _upsert_laps(df: pd.DataFrame, session_id: int, engine: Engine) -> None:
 # ---------------------------------------------------------------------------
 
 
-def load_pit_stops(
+def _load_pit_stops_jolpica(
     season: int,
     round_no: int,
     session_type: str,
+    session_id: int,
     engine: Engine,
-    run_id: str,
+    label: str,
 ) -> None:
-    """
-    Load pit stop data from FastF1 laps (PitInTime/PitOutTime).
-
-    Source note: We use FastF1 lap data rather than Jolpica because FastF1
-    provides millisecond-precision PitInTime and PitOutTime that allow us to
-    compute pit lane time directly. Jolpica only provides duration in whole
-    seconds. This is documented in methodology.md.
-
-    Only meaningful for 'R' and 'Sprint' sessions.
-    """
-    if session_type not in ("R", "Sprint"):
-        log.info("Skipping pit stops for session type %s", session_type)
-        return
-
-    _configure_ff1_cache()
-    label = f"{season} R{round_no} {session_type}"
-    log.info("Loading pit stops: %s", label)
-
+    """Fallback loader: upsert pit stops from Jolpica when FastF1 is unavailable."""
+    slug_map = _get_driver_slug_map(season, engine)
     try:
-        ff1_type = _ff1_session_type(session_type)
-        sess = fastf1.get_session(season, round_no, ff1_type)
-        sess.load(laps=True, telemetry=False, weather=False, messages=False)
+        ps_data = _jolpica_get(f"{season}/{round_no}/pitstops.json", params={"limit": 100})
+        races = ps_data.get("MRData", {}).get("RaceTable", {}).get("Races", [])
+        if not races:
+            return
+        ps_list = races[0].get("PitStops", [])
     except Exception as exc:
-        log.error("FastF1 load failed for pit stops %s: %s", label, exc)
+        log.warning("Jolpica pit stops fetch failed for %s: %s", label, exc)
         return
-
-    event_id = _get_event_id(season, round_no, engine)
-    if event_id is None:
-        return
-    session_id = _get_or_create_session(event_id, session_type, engine)
-    driver_map = _get_driver_id_map(engine)
-
-    laps = sess.laps.copy()
-
-    # A pit stop row is a lap where PitInTime is not null
-    pit_laps = laps[laps["PitInTime"].notna()].copy()
 
     rows: list[dict] = []
-    stop_counter: dict[int, int] = {}
-
-    for _, row in pit_laps.sort_values(["Driver", "LapNumber"]).iterrows():
-        code = row["Driver"]
-        driver_id = driver_map.get(code)
-        if driver_id is None:
+    for ps in ps_list:
+        did = slug_map.get(ps.get("driverId"))
+        if not did:
             continue
-
-        stop_counter[driver_id] = stop_counter.get(driver_id, 0) + 1
-        stop_no = stop_counter[driver_id]
-
-        pit_in = row.get("PitInTime")
-        pit_out = row.get("PitOutTime")
-
-        # Pit lane time = PitOutTime of the following lap - PitInTime of this lap
-        # Both are Timedeltas from session start.
-        pit_lane_ms: int | None = None
-        if pd.notna(pit_in) and pd.notna(pit_out):
-            pit_lane_ms = int((pit_out - pit_in).total_seconds() * 1000)
-
-        rows.append(
-            {
-                "session_id": session_id,
-                "driver_id": driver_id,
-                "stop_no": stop_no,
-                "lap": int(row["LapNumber"]),
-                "pit_lane_time_ms": pit_lane_ms,
-            }
-        )
+        stop_no = int(ps.get("stop", 1))
+        lap = int(ps.get("lap", 0))
+        dur_ms = _parse_time_ms(ps.get("duration"))
+        rows.append({
+            "session_id": session_id,
+            "driver_id": did,
+            "stop_no": stop_no,
+            "lap": lap,
+            "pit_lane_time_ms": dur_ms,
+        })
 
     with engine.begin() as conn:
         conn.execute(text("DELETE FROM pit_stops WHERE session_id=:sid"), {"sid": session_id})
@@ -674,7 +841,106 @@ def load_pit_stops(
                 ),
                 rows,
             )
-    log.info("Upserted %d pit stop rows for %s", len(rows), label)
+    log.info("Upserted %d pit stop rows from Jolpica for %s", len(rows), label)
+
+
+def load_pit_stops(
+    season: int,
+    round_no: int,
+    session_type: str,
+    engine: Engine,
+    run_id: str,
+) -> None:
+    """
+    Load pit stop data from FastF1 laps (falling back to Jolpica if unavailable).
+
+    Only meaningful for 'R' and 'Sprint' sessions.
+    """
+    if session_type not in ("R", "Sprint"):
+        log.info("Skipping pit stops for session type %s", session_type)
+        return
+
+    _configure_ff1_cache()
+    label = f"{season} R{round_no} {session_type}"
+    log.info("Loading pit stops: %s", label)
+
+    event_id = _get_event_id(season, round_no, engine)
+    if event_id is None:
+        return
+    session_id = _get_or_create_session(event_id, session_type, engine)
+    driver_map = _get_driver_id_map(engine)
+
+    sess = None
+    try:
+        ff1_type = _ff1_session_type(session_type)
+        sess = fastf1.get_session(season, round_no, ff1_type)
+        sess.load(laps=True, telemetry=False, weather=False, messages=False)
+    except Exception as exc:
+        log.warning("FastF1 load failed for pit stops %s: %s – falling back to Jolpica", label, exc)
+
+    has_laps = False
+    laps_data = None
+    if sess is not None:
+        try:
+            laps_data = getattr(sess, "_laps", None)
+            if laps_data is None:
+                laps_data = sess.laps
+            if laps_data is not None and not laps_data.empty:
+                has_laps = True
+        except Exception:
+            has_laps = False
+
+    if has_laps and laps_data is not None:
+        laps = laps_data.copy()
+        pit_laps = laps[laps["PitInTime"].notna()].copy() if "PitInTime" in laps.columns else pd.DataFrame()
+        if not pit_laps.empty:
+            rows: list[dict] = []
+            stop_counter: dict[int, int] = {}
+            for _, row in pit_laps.sort_values(["Driver", "LapNumber"]).iterrows():
+                code = row["Driver"]
+                driver_id = driver_map.get(code)
+                if driver_id is None:
+                    continue
+
+                stop_counter[driver_id] = stop_counter.get(driver_id, 0) + 1
+                stop_no = stop_counter[driver_id]
+
+                pit_in = row.get("PitInTime")
+                pit_out = row.get("PitOutTime")
+                pit_lane_ms: int | None = None
+                if pd.notna(pit_in) and pd.notna(pit_out):
+                    pit_lane_ms = int((pit_out - pit_in).total_seconds() * 1000)
+
+                rows.append({
+                    "session_id": session_id,
+                    "driver_id": driver_id,
+                    "stop_no": stop_no,
+                    "lap": int(row["LapNumber"]),
+                    "pit_lane_time_ms": pit_lane_ms,
+                })
+
+            with engine.begin() as conn:
+                conn.execute(text("DELETE FROM pit_stops WHERE session_id=:sid"), {"sid": session_id})
+                if rows:
+                    conn.execute(
+                        text(
+                            """
+                            INSERT INTO pit_stops
+                                (session_id, driver_id, stop_no, lap, pit_lane_time_ms)
+                            VALUES
+                                (:session_id, :driver_id, :stop_no, :lap, :pit_lane_time_ms)
+                            ON CONFLICT (session_id, driver_id, stop_no) DO UPDATE SET
+                                lap              = EXCLUDED.lap,
+                                pit_lane_time_ms = EXCLUDED.pit_lane_time_ms
+                            """
+                        ),
+                        rows,
+                    )
+            log.info("Upserted %d pit stop rows for %s via FastF1", len(rows), label)
+            return
+
+    # Fallback to Jolpica
+    _load_pit_stops_jolpica(season, round_no, session_type, session_id, engine, label)
 
 
 # ---------------------------------------------------------------------------
@@ -708,8 +974,10 @@ def load_race_control(
     session_id = _get_or_create_session(event_id, session_type, engine)
 
     try:
-        rc = sess.race_control_messages
-    except AttributeError:
+        rc = getattr(sess, "_race_control_messages", None)
+        if rc is None:
+            rc = sess.race_control_messages
+    except Exception:
         log.warning("race_control_messages not available for %s", label)
         return
 
@@ -790,8 +1058,10 @@ def load_weather(
     session_id = _get_or_create_session(event_id, session_type, engine)
 
     try:
-        weather_df = sess.weather_data
-    except AttributeError:
+        weather_df = getattr(sess, "_weather_data", None)
+        if weather_df is None:
+            weather_df = sess.weather_data
+    except Exception:
         log.warning("weather_data not available for %s", label)
         return
 
