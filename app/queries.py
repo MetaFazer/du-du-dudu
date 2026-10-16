@@ -30,6 +30,12 @@ log = logging.getLogger(__name__)
 @st.cache_resource
 def _get_engine() -> Engine:
     url = os.environ.get("DATABASE_URL", "")
+    if not url and hasattr(st, "secrets") and "DATABASE_URL" in st.secrets:
+        url = st.secrets["DATABASE_URL"]
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL is not set. Please provide DATABASE_URL in .env or Streamlit Secrets."
+        )
     if url.startswith("postgresql://") and "+psycopg" not in url:
         url = url.replace("postgresql://", "postgresql+psycopg://", 1)
     elif url.startswith("postgres://") and "+psycopg" not in url:

@@ -32,9 +32,16 @@ def get_engine() -> Engine:
     if _engine is None:
         url = os.environ.get("DATABASE_URL")
         if not url:
+            try:
+                import streamlit as st
+                if hasattr(st, "secrets") and "DATABASE_URL" in st.secrets:
+                    url = st.secrets["DATABASE_URL"]
+            except Exception:
+                pass
+        if not url:
             raise RuntimeError(
                 "DATABASE_URL is not set. "
-                "Copy .env.example to .env and fill in your credentials."
+                "Copy .env.example to .env or add DATABASE_URL to Streamlit Secrets."
             )
         # Auto-fix: Supabase / Neon give plain postgresql:// URLs.
         # SQLAlchemy 2 + psycopg 3 requires postgresql+psycopg://.
