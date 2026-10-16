@@ -11,9 +11,9 @@ Race Analysis page:
 
 from __future__ import annotations
 
-import streamlit as st
-import plotly.graph_objects as go
 import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 
 # ---- must be first Streamlit call ----
 st.set_page_config(
@@ -22,15 +22,6 @@ st.set_page_config(
     layout="wide",
 )
 
-from app.theme import (  # noqa: E402
-    COLORS,
-    TYRE_COLORS,
-    apply_theme,
-    estimated_badge,
-    footer,
-    inject_css,
-    page_header,
-)
 from app.queries import (  # noqa: E402
     get_events,
     get_grid_vs_finish,
@@ -39,6 +30,14 @@ from app.queries import (  # noqa: E402
     get_reliability,
     get_results,
     get_sessions,
+)
+from app.theme import (  # noqa: E402
+    COLORS,
+    TYRE_COLORS,
+    apply_theme,
+    footer,
+    inject_css,
+    page_header,
 )
 
 inject_css()
@@ -228,7 +227,7 @@ with tab_stints:
                     x=sub["lap_no"],
                     y=[code] * len(sub),
                     mode="markers",
-                    marker=dict(color=color, size=10, symbol="square"),
+                    marker={"color": color, "size": 10, "symbol": "square"},
                     name=f"{code} – {compound}",
                     showlegend=False,
                     hovertemplate=(
@@ -241,7 +240,7 @@ with tab_stints:
         for compound, color in TYRE_COLORS.items():
             fig.add_trace(go.Scatter(
                 x=[None], y=[None], mode="markers",
-                marker=dict(color=color, size=10, symbol="square"),
+                marker={"color": color, "size": 10, "symbol": "square"},
                 name=compound,
             ))
 
@@ -268,7 +267,7 @@ with tab_stints:
                     x=sub["lap_no"], y=sub["lap_time_s"],
                     mode="markers",
                     name=code,
-                    marker=dict(color=color_hex or COLORS["muted"], size=5),
+                    marker={"color": color_hex or COLORS["muted"], "size": 5},
                     hovertemplate=f"<b>{code}</b> Lap %{{x}}: %{{y:.3f}}s<extra></extra>",
                 ))
             apply_theme(fig2, f"{circuit} — Clean Lap Times (Race)")

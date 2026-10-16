@@ -22,6 +22,7 @@ import logging
 import os
 import time
 from pathlib import Path
+from typing import Any
 
 import fastf1
 import pandas as pd

@@ -332,10 +332,9 @@ PLOTLY_TEMPLATE = _make_plotly_template()
 
 def apply_theme(fig, title: str = "") -> object:
     """Apply the shared Plotly theme to a figure and set optional title."""
-    import plotly.graph_objects as go
     t = PLOTLY_TEMPLATE["layout"]
     fig.update_layout(
-        **{k: v for k, v in t.items()},
+        **dict(t.items()),
         title={
             "text": title,
             "font": {"family": "JetBrains Mono", "size": 13, "color": COLORS["text"]},

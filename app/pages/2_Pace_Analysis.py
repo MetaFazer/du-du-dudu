@@ -9,9 +9,9 @@ Pace Analysis page:
 
 from __future__ import annotations
 
-import streamlit as st
-import plotly.graph_objects as go
 import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 
 st.set_page_config(
     page_title="Pace Analysis · Du-Du-Du",
@@ -19,6 +19,14 @@ st.set_page_config(
     layout="wide",
 )
 
+from app.queries import (  # noqa: E402
+    get_clean_lap_pace,
+    get_events,
+    get_laps,
+    get_sessions,
+    get_teammate_gap,
+    get_tyre_deg,
+)
 from app.theme import (  # noqa: E402
     COLORS,
     TYRE_COLORS,
@@ -27,14 +35,6 @@ from app.theme import (  # noqa: E402
     footer,
     inject_css,
     page_header,
-)
-from app.queries import (  # noqa: E402
-    get_clean_lap_pace,
-    get_events,
-    get_laps,
-    get_sessions,
-    get_teammate_gap,
-    get_tyre_deg,
 )
 
 inject_css()
@@ -153,7 +153,7 @@ with tab_pace:
                             y=sub["lap_time_s"],
                             mode="markers",
                             name=code,
-                            marker=dict(color=color, size=5),
+                            marker={"color": color, "size": 5},
                             hovertemplate=f"<b>{code}</b> Lap %{{x}}: %{{y:.3f}}s<extra></extra>",
                         ))
                     apply_theme(fig2, f"{circuit} — Clean Laps ({chosen})")
@@ -216,8 +216,8 @@ with tab_deg:
                 y=sub["delta_s"],
                 mode="lines+markers",
                 name=compound,
-                line=dict(color=color, width=2),
-                marker=dict(color=color, size=7),
+                line={"color": color, "width": 2},
+                marker={"color": color, "size": 7},
                 hovertemplate=(
                     f"<b>{compound}</b><br>"
                     "Tyre age: %{x} laps (5-lap bucket)<br>"

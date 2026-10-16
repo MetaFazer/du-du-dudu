@@ -22,8 +22,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-from app.theme import COLORS, footer, inject_css, page_header  # noqa: E402
 from app.queries import get_events  # noqa: E402
+from app.theme import COLORS, footer, inject_css, page_header  # noqa: E402
 
 inject_css()
 page_header("Du-Du-Du", "F1 ANALYTICS · 2025")
@@ -78,6 +78,7 @@ st.markdown(
 # ---------------------------------------------------------------------------
 try:
     from sqlalchemy import text
+
     from app.queries import _get_engine
 
     engine = _get_engine()
@@ -113,8 +114,9 @@ st.markdown("#### 2025 Season Calendar")
 events = get_events(2025)
 if not events.empty:
     try:
-        from app.queries import _get_engine
         from sqlalchemy import text as sqlt
+
+        from app.queries import _get_engine
         eng = _get_engine()
         with eng.connect() as c:
             loaded = c.execute(sqlt(
@@ -147,8 +149,9 @@ st.markdown("---")
 # ---------------------------------------------------------------------------
 st.markdown("#### Data Quality Log")
 try:
-    from app.queries import _get_engine
     from sqlalchemy import text as sqlt2
+
+    from app.queries import _get_engine
     eng2 = _get_engine()
     with eng2.connect() as c:
         dq = c.execute(sqlt2(

@@ -5,10 +5,10 @@ Discovers project-declared validators (see gravitas_verify) instead of
 assuming toolchains from language. Historical language->command chains are
 kept only as a labeled last-resort fallback when discovery finds nothing.
 """
+import argparse
 import json
 import subprocess
 import sys
-import argparse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "plugins" / "gravitas-antigravity" / "scripts"))

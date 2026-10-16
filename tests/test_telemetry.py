@@ -222,7 +222,7 @@ def test_generate_physics_telemetry():
     assert res["speed"].max() <= 350.0
     assert (res["gear"] >= 1).all() and (res["gear"] <= 8).all()
     assert (res["rpm"] >= 9000).all()
-    assert isinstance(res["brake"].iloc[0], (bool, np.bool_))
+    assert isinstance(res["brake"].iloc[0], bool | np.bool_)
 
     # Verify integrated time is close to official lap time
     cum_t = compute_cumulative_time(res, lap_ms)

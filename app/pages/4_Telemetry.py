@@ -15,8 +15,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import streamlit as st
+from plotly.subplots import make_subplots
 
 # ---- must be first Streamlit call ----
 st.set_page_config(
@@ -25,6 +25,14 @@ st.set_page_config(
     layout="wide",
 )
 
+from app.queries import (  # noqa: E402
+    get_circuit_corners,
+    get_corner_stats,
+    get_events,
+    get_lap_telemetry,
+    get_sessions,
+    get_telemetry_drivers,
+)
 from app.theme import (  # noqa: E402
     COLORS,
     apply_theme,
@@ -33,14 +41,6 @@ from app.theme import (  # noqa: E402
     footer,
     inject_css,
     page_header,
-)
-from app.queries import (  # noqa: E402
-    get_circuit_corners,
-    get_corner_stats,
-    get_events,
-    get_lap_telemetry,
-    get_sessions,
-    get_telemetry_drivers,
 )
 from etl.telemetry import calculate_mini_sectors, compute_delta_time  # noqa: E402
 
@@ -105,7 +105,7 @@ def fmt_sec(ms: int | float | None) -> str:
 
 # Driver selections
 driver_codes = telem_drivers["code"].tolist()
-driver_id_map = dict(zip(telem_drivers["code"], telem_drivers["driver_id"]))
+driver_id_map = dict(zip(telem_drivers["code"], telem_drivers["driver_id"], strict=False))
 
 col_da, col_db = st.sidebar.columns(2)
 with col_da:
@@ -196,7 +196,7 @@ with tab_trace:
             x=tel_a["dist_m"],
             y=tel_a["speed"],
             name=f"{row_a['code']} Speed",
-            line=dict(color=color_a, width=2.5),
+            line={"color": color_a, "width": 2.5},
             hovertemplate="<b>%{y:.1f} km/h</b> at %{x:.0f}m<extra>" + row_a["code"] + "</extra>",
         )
     )
@@ -207,7 +207,7 @@ with tab_trace:
             x=tel_b["dist_m"],
             y=tel_b["speed"],
             name=f"{row_b['code']} Speed",
-            line=dict(color=color_b, width=2.5, dash="dot" if driver_a_code == driver_b_code else "solid"),
+            line={"color": color_b, "width": 2.5, "dash": "dot" if driver_a_code == driver_b_code else "solid"},
             hovertemplate="<b>%{y:.1f} km/h</b> at %{x:.0f}m<extra>" + row_b["code"] + "</extra>",
         )
     )
@@ -222,15 +222,15 @@ with tab_trace:
                 line_color=COLORS["panel_border"],
                 annotation_text=f"T{int(c['corner_no'])}",
                 annotation_position="top left",
-                annotation_font=dict(size=9, color=COLORS["muted"]),
+                annotation_font={"size": 9, "color": COLORS["muted"]},
             )
 
     fig_speed.update_layout(
         xaxis_title="Distance along lap (metres)",
         yaxis_title="Speed (km/h)",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "right", "x": 1},
         height=380,
-        margin=dict(l=40, r=20, t=30, b=40),
+        margin={"l": 40, "r": 20, "t": 30, "b": 40},
     )
     apply_theme(fig_speed)
     st.plotly_chart(fig_speed, use_container_width=True)
@@ -260,7 +260,7 @@ with tab_trace:
                 y=delta_df["delta_s"],
                 mode="lines",
                 name=f"Δ ({row_a['code']} - {row_b['code']})",
-                line=dict(color=COLORS["accent"], width=2),
+                line={"color": COLORS["accent"], "width": 2},
                 fill="tozeroy",
                 fillcolor="rgba(0, 210, 190, 0.12)",
                 hovertemplate="Δt: <b>%{y:+.3f}s</b> at %{x:.0f}m<extra></extra>",
@@ -272,7 +272,7 @@ with tab_trace:
             xaxis_title="Distance along lap (metres)",
             yaxis_title="Delta Time (s)",
             height=250,
-            margin=dict(l=40, r=20, t=10, b=40),
+            margin={"l": 40, "r": 20, "t": 10, "b": 40},
         )
         apply_theme(fig_delta)
         st.plotly_chart(fig_delta, use_container_width=True)
@@ -297,7 +297,7 @@ with tab_pedals:
             x=tel_a["dist_m"],
             y=tel_a["throttle"],
             name=f"{row_a['code']} Throttle",
-            line=dict(color=color_a, width=2),
+            line={"color": color_a, "width": 2},
         ),
         row=1,
         col=1,
@@ -307,7 +307,7 @@ with tab_pedals:
             x=tel_b["dist_m"],
             y=tel_b["throttle"],
             name=f"{row_b['code']} Throttle",
-            line=dict(color=color_b, width=2, dash="dot"),
+            line={"color": color_b, "width": 2, "dash": "dot"},
         ),
         row=1,
         col=1,
@@ -319,7 +319,7 @@ with tab_pedals:
             x=tel_a["dist_m"],
             y=tel_a["brake"].astype(int),
             name=f"{row_a['code']} Brake",
-            line=dict(color=color_a, width=1.5),
+            line={"color": color_a, "width": 1.5},
         ),
         row=2,
         col=1,
@@ -329,7 +329,7 @@ with tab_pedals:
             x=tel_b["dist_m"],
             y=tel_b["brake"].astype(int),
             name=f"{row_b['code']} Brake",
-            line=dict(color=color_b, width=1.5, dash="dot"),
+            line={"color": color_b, "width": 1.5, "dash": "dot"},
         ),
         row=2,
         col=1,
@@ -341,7 +341,7 @@ with tab_pedals:
             x=tel_a["dist_m"],
             y=tel_a["gear"],
             name=f"{row_a['code']} Gear",
-            line=dict(color=color_a, width=1.5, shape="hv"),
+            line={"color": color_a, "width": 1.5, "shape": "hv"},
         ),
         row=3,
         col=1,
@@ -351,7 +351,7 @@ with tab_pedals:
             x=tel_b["dist_m"],
             y=tel_b["gear"],
             name=f"{row_b['code']} Gear",
-            line=dict(color=color_b, width=1.5, shape="hv", dash="dot"),
+            line={"color": color_b, "width": 1.5, "shape": "hv", "dash": "dot"},
         ),
         row=3,
         col=1,
@@ -359,8 +359,8 @@ with tab_pedals:
 
     fig_pedals.update_layout(
         height=550,
-        margin=dict(l=40, r=20, t=30, b=40),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin={"l": 40, "r": 20, "t": 30, "b": 40},
+        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "xanchor": "right", "x": 1},
     )
     fig_pedals.update_yaxes(range=[0, 105], row=1, col=1)
     fig_pedals.update_yaxes(tickvals=[0, 1], ticktext=["OFF", "ON"], range=[-0.1, 1.1], row=2, col=1)
@@ -403,7 +403,7 @@ with tab_mini:
             xaxis_title="Mini-Sector",
             yaxis_title="Winning Margin (seconds)",
             height=300,
-            margin=dict(l=40, r=20, t=20, b=40),
+            margin={"l": 40, "r": 20, "t": 20, "b": 40},
         )
         apply_theme(fig_mini)
         st.plotly_chart(fig_mini, use_container_width=True)
@@ -427,7 +427,7 @@ with tab_mini:
                     x=tel_a.loc[mask, "x"],
                     y=tel_a.loc[mask, "y"],
                     mode="lines",
-                    line=dict(color=seg_color, width=4.5),
+                    line={"color": seg_color, "width": 4.5},
                     hoverinfo="none",
                     showlegend=False,
                 )
@@ -440,19 +440,19 @@ with tab_mini:
                     x=corners_df["x"],
                     y=corners_df["y"],
                     mode="markers+text",
-                    marker=dict(size=7, color=COLORS["session_best"]),
+                    marker={"size": 7, "color": COLORS["session_best"]},
                     text=[f"T{int(n)}" for n in corners_df["corner_no"]],
                     textposition="top center",
-                    textfont=dict(size=10, color=COLORS["text"]),
+                    textfont={"size": 10, "color": COLORS["text"]},
                     name="Corners",
                 )
             )
 
         fig_map.update_layout(
             height=460,
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, scaleanchor="x", scaleratio=1),
-            margin=dict(l=20, r=20, t=20, b=20),
+            xaxis={"showgrid": False, "zeroline": False, "showticklabels": False},
+            yaxis={"showgrid": False, "zeroline": False, "showticklabels": False, "scaleanchor": "x", "scaleratio": 1},
+            margin={"l": 20, "r": 20, "t": 20, "b": 20},
         )
         apply_theme(fig_map)
         st.plotly_chart(fig_map, use_container_width=True)

@@ -81,7 +81,7 @@ def _execute_sql_file(path: Path, eng: Engine) -> None:
         for stmt in statements:
             # Skip pure comment blocks
             non_comment = "\n".join(
-                l for l in stmt.splitlines() if not l.strip().startswith("--")
+                line for line in stmt.splitlines() if not line.strip().startswith("--")
             ).strip()
             if not non_comment:
                 continue

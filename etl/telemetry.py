@@ -313,7 +313,7 @@ def calculate_corner_stats(
 
         brake_pt: float | None = None
         if not b_zone.empty:
-            b_active = b_zone[b_zone["brake"] == True]
+            b_active = b_zone[b_zone["brake"]]
             if not b_active.empty:
                 brake_pt = float(b_active["dist_m"].iloc[0])
 
@@ -576,7 +576,7 @@ def load_circuit_corners(
         sess.load(laps=True, telemetry=False, weather=False, messages=False)
         ci = sess.get_circuit_info()
         corners_df = compute_corner_distances(ci.corners, total_dist)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         log.warning("Could not fetch FastF1 circuit info for %s: %s", circuit_name, exc)
         corners_df = pd.DataFrame()
 
@@ -687,7 +687,7 @@ def load_telemetry_for_session(
 
     for f_lap in fastest_laps:
         d_id = f_lap[0]
-        d_code = f_lap[1]
+        f_lap[1]
         lap_no = f_lap[2]
         lap_time_ms = f_lap[3]
         s1 = f_lap[4]

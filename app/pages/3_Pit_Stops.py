@@ -9,9 +9,9 @@ Pit Stop Strategy page:
 
 from __future__ import annotations
 
-import streamlit as st
-import plotly.graph_objects as go
 import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 
 st.set_page_config(
     page_title="Pit Stops · Du-Du-Du",
@@ -19,6 +19,14 @@ st.set_page_config(
     layout="wide",
 )
 
+from app.queries import (  # noqa: E402
+    get_events,
+    get_laps,
+    get_pit_loss,
+    get_pit_stops,
+    get_sessions,
+    get_undercut,
+)
 from app.theme import (  # noqa: E402
     COLORS,
     TYRE_COLORS,
@@ -27,14 +35,6 @@ from app.theme import (  # noqa: E402
     footer,
     inject_css,
     page_header,
-)
-from app.queries import (  # noqa: E402
-    get_events,
-    get_laps,
-    get_pit_loss,
-    get_pit_stops,
-    get_sessions,
-    get_undercut,
 )
 
 inject_css()
@@ -120,7 +120,7 @@ with tab_delta:
                 ),
                 customdata=list(zip(
                     sub["in_lap_no"],
-                    (sub["pit_lane_time_ms"].fillna(0) / 1000).round(1),
+                    (sub["pit_lane_time_ms"].fillna(0) / 1000).round(1), strict=False,
                 )),
             ))
 
@@ -208,7 +208,7 @@ with tab_strat:
                     "Stint length: %{y} laps<br>"
                     "Laps %{customdata[0]}–%{customdata[1]}<extra></extra>"
                 ),
-                customdata=list(zip(sub["lap_start"], sub["lap_end"])),
+                customdata=list(zip(sub["lap_start"], sub["lap_end"], strict=False)),
             ))
 
         apply_theme(fig, f"{circuit} — Stint Strategy (Laps by Compound)")

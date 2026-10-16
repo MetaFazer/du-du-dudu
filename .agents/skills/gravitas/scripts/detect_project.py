@@ -5,7 +5,6 @@ Detects the project language and discovers project-declared validators
 (see gravitas_verify). Never assumes toolchains from language alone.
 """
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -75,9 +74,7 @@ def count_source_files(root: Path, language: str) -> int:
 def suggest_budget(source_count: int, has_tests: bool) -> str:
     if source_count < 10:
         return "eco"
-    elif source_count < 50:
-        return "balanced"
-    elif source_count < 200:
+    elif source_count < 50 or source_count < 200:
         return "balanced"
     else:
         return "deep"
