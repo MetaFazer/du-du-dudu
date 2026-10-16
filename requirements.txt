@@ -1,0 +1,27 @@
+# NOTE: Spec calls for Python 3.11 but this machine runs Python 3.13.2.
+# FastF1 2.3.3 does not support Python 3.13 (pkg_resources issue).
+# Using FastF1 3.8.3 (current stable) which supports Python 3.13.
+# All other versions updated to be compatible.
+# Streamlit 1.45.1 pinned as spec requires (CSS stability).
+
+# Core
+fastf1==3.8.3
+requests==2.34.2
+
+# Database
+sqlalchemy==2.0.41
+psycopg[binary]==3.2.9
+
+# Data processing
+pandas==2.3.3
+numpy==2.5.3
+pyarrow==20.0.0
+
+# App
+streamlit==1.45.1
+plotly==6.1.2
+
+# Dev
+python-dotenv==1.1.0
+pytest==8.3.5
+ruff==0.11.13
