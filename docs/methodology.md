@@ -2,7 +2,7 @@
 
 _Last updated: Phase 1_
 
-This document explains every ETL decision, cleaning rule, and analytical definition used in Du-Du-Du. Any metric shown in the app is either raw data or is labeled **"estimated"**.
+This document explains every ETL decision, cleaning rule, and analytical definition used in Du-Du-Dudu. Any metric shown in the app is either raw data or is labeled **"estimated"**.
 
 ---
 

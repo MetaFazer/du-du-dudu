@@ -135,7 +135,7 @@ Comparing Pole Sitter **Lando Norris (NOR)** against **Oscar Piastri (PIA)**:
 
 ## 8. Summary of Methodological Standards
 
-All metrics published in Du-Du-Du strictly follow the **Ground Before Mutating** and **Evidence-Backed Verification** principles:
+All metrics published in Du-Du-Dudu strictly follow the **Ground Before Mutating** and **Evidence-Backed Verification** principles:
 1. Pure raw timing metrics (lap times, sector times, speed traps) originate directly from official timing data.
 2. All non-transponder derived values (pit loss delta, undercut pairs, 10m grid telemetry traces, corner statistics) carry explicit **`ESTIMATED`** tags.
 3. Linear models acknowledge unmeasured variables (fuel mass burn-off and track grip evolution).

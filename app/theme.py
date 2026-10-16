@@ -355,13 +355,13 @@ def inject_css() -> None:
 
 
 def page_header(title: str, subtitle: str = "F1 ANALYTICS", chip: str = "2025") -> None:
-    """Render the standardised DU-DU-DU page header."""
+    """Render the standardised DU-DU-DUDU page header."""
     st.markdown(
         f"""
         <div class="du-header">
             <div class="du-logo">DU</div>
             <div>
-                <div class="du-title">DU-DU-DU</div>
+                <div class="du-title">DU-DU-DUDU</div>
                 <div class="du-subtitle">{subtitle}</div>
             </div>
             <div class="du-chip">{chip}</div>

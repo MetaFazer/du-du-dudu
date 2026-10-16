@@ -1,5 +1,5 @@
 """
-app/Home.py – Du-Du-Du landing dashboard.
+app/Home.py – Du-Du-Dudu landing dashboard.
 
 Shows:
   • Season overview KPIs (rounds loaded, laps in DB)
@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 st.set_page_config(
-    page_title="Du-Du-Du · F1 Analytics",
+    page_title="Du-Du-Dudu · F1 Analytics",
     page_icon="🏎",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -26,7 +26,7 @@ from app.queries import get_events  # noqa: E402
 from app.theme import COLORS, footer, inject_css, page_header  # noqa: E402
 
 inject_css()
-page_header("Du-Du-Du", "F1 ANALYTICS · 2025")
+page_header("Du-Du-Dudu", "F1 ANALYTICS · 2025")
 
 # ---------------------------------------------------------------------------
 # Quick-nav cards

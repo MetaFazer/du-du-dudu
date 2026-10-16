@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Du-Du-Du ETL runner")
+    parser = argparse.ArgumentParser(description="Du-Du-Dudu ETL runner")
     parser.add_argument("--season", type=int, default=2025, help="F1 season year")
     parser.add_argument("--round", type=int, dest="round_no", help="Single round number")
     parser.add_argument("--rounds", type=str, help="Comma-separated round numbers, e.g. 1,3,5")

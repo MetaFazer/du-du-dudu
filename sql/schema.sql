@@ -1,5 +1,5 @@
 -- =============================================================================
--- Du-Du-Du F1 Analytics – schema.sql
+-- Du-Du-Dudu F1 Analytics – schema.sql
 -- PostgreSQL schema for the full analytics database.
 -- All ETL writes are idempotent (upserts / delete-and-reload per session).
 -- =============================================================================

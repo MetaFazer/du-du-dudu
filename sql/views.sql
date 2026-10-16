@@ -1,5 +1,5 @@
 -- =============================================================================
--- sql/views.sql  –  Materialized views for Du-Du-Du heavy aggregates
+-- sql/views.sql  –  Materialized views for Du-Du-Dudu heavy aggregates
 --
 -- All views use CREATE MATERIALIZED VIEW IF NOT EXISTS so re-running is safe.
 -- Each has a UNIQUE index to allow REFRESH CONCURRENTLY.

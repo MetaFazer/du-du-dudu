@@ -17,7 +17,7 @@ import streamlit as st
 
 # ---- must be first Streamlit call ----
 st.set_page_config(
-    page_title="Race Analysis · Du-Du-Du",
+    page_title="Race Analysis · Du-Du-Dudu",
     page_icon="🏁",
     layout="wide",
 )

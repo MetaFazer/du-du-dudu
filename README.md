@@ -1,4 +1,4 @@
-# Du-Du-Du · Formula 1 Analytics Platform
+# Du-Du-Dudu · Formula 1 Analytics Platform
 
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL%20%2F%20Supabase-336791.svg)](https://supabase.com/)
@@ -13,7 +13,7 @@
 
 ## Overview
 
-**Du-Du-Du** is an end-to-end Formula 1 data engineering and analytical platform analyzing Grand Prix pace, tyre degradation, pit stop execution, and driver telemetry.
+**Du-Du-Dudu** is an end-to-end Formula 1 data engineering and analytical platform analyzing Grand Prix pace, tyre degradation, pit stop execution, and driver telemetry.
 
 Designed with rigorous engineering standards:
 - **Idempotent ETL Pipeline**: Incremental upserts and partitioned session loading that can be safely re-run without duplicating or corrupting data.
@@ -197,7 +197,7 @@ The test suite covers:
 ## Repository Structure
 
 ```text
-du-du-du/
+du-du-dudu/
 ├── app/
 │   ├── Home.py                  # Main landing dashboard
 │   ├── theme.py                 # F1 design tokens, dark CSS & Plotly template

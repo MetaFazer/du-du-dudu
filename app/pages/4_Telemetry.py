@@ -20,7 +20,7 @@ from plotly.subplots import make_subplots
 
 # ---- must be first Streamlit call ----
 st.set_page_config(
-    page_title="Driver Telemetry · Du-Du-Du",
+    page_title="Driver Telemetry · Du-Du-Dudu",
     page_icon="⚡",
     layout="wide",
 )
