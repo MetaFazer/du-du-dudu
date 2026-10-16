@@ -1,0 +1,3 @@
+-- sql/analysis/README.md placeholder
+-- One .sql file per analysis finding will be added in Phase 2.
+-- File naming convention: 01_clean_lap_pace.sql, 02_pit_loss.sql, etc.
